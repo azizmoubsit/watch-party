@@ -1,0 +1,231 @@
+import { createClient } from "@/lib/supabase/client";
+import type { Room, RoomMember, RoomRole } from "@/types/room";
+
+function generateRoomCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "WP-";
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+export interface CreateRoomResult {
+  success: boolean;
+  room?: Room;
+  member?: RoomMember;
+  error?: string;
+}
+
+export interface JoinRoomResult {
+  success: boolean;
+  room?: Room;
+  member?: RoomMember;
+  error?: string;
+}
+
+export async function createRoomAction(params: {
+  title: string;
+  displayName: string;
+  sourceUrl?: string;
+}): Promise<CreateRoomResult> {
+  const supabase = createClient();
+
+  const { data: { session }, error: authError } = await supabase.auth.getSession();
+  if (authError || !session?.user) {
+    return { success: false, error: "You must be signed in to create a room." };
+  }
+
+  const userId = session.user.id;
+  const roomCode = generateRoomCode();
+
+  // Determine initial source type
+  let sourceType: "mp4" | "hls" | "youtube" = "mp4";
+  const url = params.sourceUrl?.trim() || "";
+  if (url.includes("youtube.com") || url.includes("youtu.be")) {
+    sourceType = "youtube";
+  } else if (url.endsWith(".m3u8")) {
+    sourceType = "hls";
+  }
+
+  // Insert room
+  const { data: room, error: roomError } = await supabase
+    .from("rooms")
+    .insert({
+      code: roomCode,
+      title: params.title.trim(),
+      owner_id: userId,
+      source_type: sourceType,
+      source_url: url,
+      playback_status: "paused",
+      playback_position: 0.0,
+      version: 1,
+      default_role: "viewer",
+      allow_controller_seek: true,
+    })
+    .select()
+    .single();
+
+  if (roomError || !room) {
+    console.error("Error creating room:", roomError);
+    return { success: false, error: roomError?.message || "Failed to create room." };
+  }
+
+  // Insert room membership as owner
+  const { data: member, error: memberError } = await supabase
+    .from("room_members")
+    .insert({
+      room_id: room.id,
+      user_id: userId,
+      role: "owner" as RoomRole,
+      display_name: params.displayName.trim(),
+    })
+    .select()
+    .single();
+
+  if (memberError || !member) {
+    console.error("Error creating room member:", memberError);
+    return { success: false, error: memberError?.message || "Failed to create room membership." };
+  }
+
+  return { success: true, room: room as Room, member: member as RoomMember };
+}
+
+export async function joinRoomByCodeAction(params: {
+  code: string;
+  displayName: string;
+}): Promise<JoinRoomResult> {
+  const supabase = createClient();
+
+  const { data: { session }, error: authError } = await supabase.auth.getSession();
+  if (authError || !session?.user) {
+    return { success: false, error: "You must be signed in to join a room." };
+  }
+
+  const userId = session.user.id;
+  const cleanedCode = params.code.trim().toUpperCase();
+
+  // Lookup room by code or UUID
+  const { data: rooms, error: roomLookupError } = await supabase
+    .from("rooms")
+    .select()
+    .or(`code.eq.${cleanedCode},id.eq.${params.code.trim()}`);
+
+  if (roomLookupError || !rooms || rooms.length === 0) {
+    return { success: false, error: "Room not found. Please verify the room code or link." };
+  }
+
+  const room = rooms[0] as Room;
+
+  // Check if member already exists to preserve custom role
+  const { data: existingMember } = await supabase
+    .from("room_members")
+    .select("role")
+    .eq("room_id", room.id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const initialRole: RoomRole = existingMember?.role
+    ? (existingMember.role as RoomRole)
+    : room.owner_id === userId
+    ? "owner"
+    : (room.default_role || "viewer");
+
+  // Upsert room membership
+  const { data: member, error: memberError } = await supabase
+    .from("room_members")
+    .upsert(
+      {
+        room_id: room.id,
+        user_id: userId,
+        role: initialRole,
+        display_name: params.displayName.trim(),
+        last_seen_at: new Date().toISOString(),
+      },
+      { onConflict: "room_id,user_id" }
+    )
+    .select()
+    .single();
+
+  if (memberError || !member) {
+    console.error("Error joining room:", memberError);
+    return { success: false, error: memberError?.message || "Failed to join room." };
+  }
+
+  return { success: true, room, member: member as RoomMember };
+}
+
+export async function updateRoomSettingsAction(params: {
+  roomId: string;
+  title: string;
+  defaultRole: "controller" | "viewer";
+  allowControllerSeek: boolean;
+}): Promise<{ success: boolean; room?: Room; error?: string }> {
+  const supabase = createClient();
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) {
+    return { success: false, error: "Authentication required." };
+  }
+
+  // Check if current user is owner
+  const { data: member } = await supabase
+    .from("room_members")
+    .select("role")
+    .eq("room_id", params.roomId)
+    .eq("user_id", session.user.id)
+    .single();
+
+  if (!member || member.role !== "owner") {
+    return { success: false, error: "Only room owners can update room settings." };
+  }
+
+  const { data: updatedRoom, error } = await supabase
+    .from("rooms")
+    .update({
+      title: params.title.trim(),
+      default_role: params.defaultRole,
+      allow_controller_seek: params.allowControllerSeek,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", params.roomId)
+    .select()
+    .single();
+
+  if (error || !updatedRoom) {
+    return { success: false, error: error?.message || "Failed to update room settings." };
+  }
+
+  return { success: true, room: updatedRoom as Room };
+}
+
+export async function fetchRoomWithMembership(roomId: string) {
+  const supabase = createClient();
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+
+  const { data: room, error: roomError } = await supabase
+    .from("rooms")
+    .select()
+    .eq("id", roomId)
+    .single();
+
+  if (roomError || !room) {
+    return { room: null, member: null, members: [], error: "Room not found." };
+  }
+
+  const { data: members } = await supabase
+    .from("room_members")
+    .select()
+    .eq("room_id", roomId);
+
+  const currentMember = (members || []).find((m) => m.user_id === userId) || null;
+
+  return {
+    room: room as Room,
+    member: currentMember as RoomMember | null,
+    members: (members || []) as RoomMember[],
+    error: null,
+  };
+}
