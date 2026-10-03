@@ -24,6 +24,29 @@ export interface JoinRoomResult {
   error?: string;
 }
 
+async function ensureUserSession(supabase: ReturnType<typeof createClient>): Promise<{ userId: string | null; error?: string }> {
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (session?.user?.id) {
+    return { userId: session.user.id };
+  }
+
+  if (sessionError) {
+    console.warn("Session error, attempting anonymous sign-in fallback:", sessionError.message);
+  }
+
+  // Attempt auto anonymous sign-in fallback
+  const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+  if (anonError) {
+    console.error("Anonymous auth error:", anonError.message);
+    return {
+      userId: null,
+      error: `Authentication failed (${anonError.message}). Please ensure Anonymous Auth is enabled in your Supabase Dashboard (Authentication > Providers > Anonymous).`,
+    };
+  }
+
+  return { userId: anonData.user?.id || null };
+}
+
 export async function createRoomAction(params: {
   title: string;
   displayName: string;
@@ -31,12 +54,14 @@ export async function createRoomAction(params: {
 }): Promise<CreateRoomResult> {
   const supabase = createClient();
 
-  const { data: { session }, error: authError } = await supabase.auth.getSession();
-  if (authError || !session?.user) {
-    return { success: false, error: "You must be signed in to create a room." };
+  const { userId, error: authErr } = await ensureUserSession(supabase);
+  if (!userId) {
+    return {
+      success: false,
+      error: authErr || "You must be signed in to create a room.",
+    };
   }
 
-  const userId = session.user.id;
   const roomCode = generateRoomCode();
 
   // Determine initial source type
@@ -97,12 +122,14 @@ export async function joinRoomByCodeAction(params: {
 }): Promise<JoinRoomResult> {
   const supabase = createClient();
 
-  const { data: { session }, error: authError } = await supabase.auth.getSession();
-  if (authError || !session?.user) {
-    return { success: false, error: "You must be signed in to join a room." };
+  const { userId, error: authErr } = await ensureUserSession(supabase);
+  if (!userId) {
+    return {
+      success: false,
+      error: authErr || "You must be signed in to join a room.",
+    };
   }
 
-  const userId = session.user.id;
   const cleanedCode = params.code.trim().toUpperCase();
 
   // Lookup room by code or UUID
@@ -163,9 +190,9 @@ export async function updateRoomSettingsAction(params: {
 }): Promise<{ success: boolean; room?: Room; error?: string }> {
   const supabase = createClient();
 
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) {
-    return { success: false, error: "Authentication required." };
+  const { userId, error: authErr } = await ensureUserSession(supabase);
+  if (!userId) {
+    return { success: false, error: authErr || "Authentication required." };
   }
 
   // Check if current user is owner
@@ -173,7 +200,7 @@ export async function updateRoomSettingsAction(params: {
     .from("room_members")
     .select("role")
     .eq("room_id", params.roomId)
-    .eq("user_id", session.user.id)
+    .eq("user_id", userId)
     .single();
 
   if (!member || member.role !== "owner") {

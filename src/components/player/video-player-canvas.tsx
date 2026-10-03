@@ -38,6 +38,12 @@ export const VideoPlayerCanvas = React.forwardRef<VideoPlayerHandle, VideoPlayer
     const controllerRef = React.useRef<VideoController | null>(null);
     const containerRef = React.useRef<HTMLDivElement>(null);
 
+    // Keep callback refs stable to prevent controller destruction on parent re-renders
+    const callbacksRef = React.useRef({ onUserPlay, onUserPause, onUserSeek });
+    React.useEffect(() => {
+      callbacksRef.current = { onUserPlay, onUserPause, onUserSeek };
+    }, [onUserPlay, onUserPause, onUserSeek]);
+
     const [playerState, setPlayerState] = React.useState<PlayerState>({
       status: "idle",
       currentTime: 0,
@@ -74,25 +80,25 @@ export const VideoPlayerCanvas = React.forwardRef<VideoPlayerHandle, VideoPlayer
       []
     );
 
-    // Initialize player controller
+    // Initialize player controller ONLY when source type changes
     React.useEffect(() => {
       if (!videoRef.current) return;
 
       const callbacks: PlayerCallbacks = {
         onPlay: (origin) => {
           setIsAutoplayBlocked(false);
-          if (origin === "user" && onUserPlay) {
-            onUserPlay();
+          if (origin === "user" && callbacksRef.current.onUserPlay) {
+            callbacksRef.current.onUserPlay();
           }
         },
         onPause: (origin) => {
-          if (origin === "user" && onUserPause) {
-            onUserPause();
+          if (origin === "user" && callbacksRef.current.onUserPause) {
+            callbacksRef.current.onUserPause();
           }
         },
         onSeek: (position, origin) => {
-          if (origin === "user" && onUserSeek) {
-            onUserSeek(position);
+          if (origin === "user" && callbacksRef.current.onUserSeek) {
+            callbacksRef.current.onUserSeek(position);
           }
         },
         onStateChange: (state) => {
@@ -110,18 +116,26 @@ export const VideoPlayerCanvas = React.forwardRef<VideoPlayerHandle, VideoPlayer
       );
       controllerRef.current = controller;
 
+      if (source?.url) {
+        controller.load(source);
+      }
+
       return () => {
         controller.destroy();
         controllerRef.current = null;
       };
-    }, [onUserPlay, onUserPause, onUserSeek, source?.type]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [source?.type]);
 
-    // Load new source
+    // Load new source URL when source changes (without recreating controller)
+    const prevSourceUrlRef = React.useRef<string | null>(null);
     React.useEffect(() => {
-      if (source && controllerRef.current) {
+      if (source && source.url && source.url !== prevSourceUrlRef.current && controllerRef.current) {
+        prevSourceUrlRef.current = source.url;
         controllerRef.current.load(source);
       }
-    }, [source]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [source?.url, source?.type]);
 
     const handleTogglePlay = () => {
       if (!controllerRef.current || !canControl) return;

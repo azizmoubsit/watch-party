@@ -48,13 +48,11 @@ AS $$
 $$;
 
 -- RLS Policies for rooms
-CREATE POLICY "Allow authenticated users to read rooms they belong to"
+CREATE POLICY "Allow authenticated users to read rooms"
   ON public.rooms
   FOR SELECT
   TO authenticated
-  USING (
-    public.is_room_member(id, auth.uid()) OR owner_id = auth.uid()
-  );
+  USING (true);
 
 CREATE POLICY "Allow authenticated users to create rooms"
   ON public.rooms
