@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Tv, Users, ShieldCheck, Sparkles } from "lucide-react";
+import { Tv } from "lucide-react";
 import { AuthProvider } from "@/lib/auth/auth-context";
 import { UserProfileMenu } from "@/components/auth/user-profile-menu";
 import { DisplayNameModal } from "@/components/auth/display-name-modal";
@@ -33,26 +33,11 @@ export default function RootLayout({
                 <div>
                   <span className="font-bold text-lg tracking-tight text-white flex items-center gap-1.5">
                     Watch Party
-                    <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                      v0.1
-                    </span>
                   </span>
                 </div>
               </Link>
 
               <nav className="flex items-center gap-4 sm:gap-6">
-                <div className="hidden md:flex items-center gap-4 text-xs font-medium text-slate-400">
-                  <span className="flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Realtime Sync
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-emerald-400" /> Multi-Role
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-purple-400" /> Supabase Auth
-                  </span>
-                </div>
-
                 <UserProfileMenu />
               </nav>
             </div>
@@ -67,13 +52,17 @@ export default function RootLayout({
           <footer className="border-t border-slate-800/60 py-8 bg-[#05070a]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
               <p>© {new Date().getFullYear()} Watch Party. Synchronized Watch Experience.</p>
-              <div className="flex items-center gap-4">
-                <span>Next.js 15+ App Router</span>
-                <span>•</span>
-                <span>Supabase Realtime</span>
-                <span>•</span>
-                <span>TypeScript</span>
-              </div>
+              <p className="text-slate-400">
+                Created by{" "}
+                <a
+                  href="https://azizmoubsit.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-400 hover:text-indigo-300 transition-colors font-semibold underline underline-offset-4"
+                >
+                  Aziz Moubsit
+                </a>
+              </p>
             </div>
           </footer>
         </AuthProvider>
