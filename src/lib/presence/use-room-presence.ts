@@ -22,6 +22,20 @@ export function useRoomPresence({
   const [onlineUsers, setOnlineUsers] = React.useState<PresenceState[]>([]);
   const channelRef = React.useRef<RealtimeChannel | null>(null);
 
+  const infoRef = React.useRef({ displayName, role });
+  React.useEffect(() => {
+    infoRef.current = { displayName, role };
+    if (channelRef.current && userId) {
+      channelRef.current.track({
+        userId,
+        displayName: displayName || "Anonymous User",
+        role,
+        joinedAt: Date.now(),
+        onlineAt: Date.now(),
+      });
+    }
+  }, [displayName, role, userId]);
+
   React.useEffect(() => {
     if (!roomId || !userId) return;
 
@@ -60,8 +74,8 @@ export function useRoomPresence({
         if (status === "SUBSCRIBED") {
           await channel.track({
             userId,
-            displayName: displayName || "Anonymous User",
-            role,
+            displayName: infoRef.current.displayName || "Anonymous User",
+            role: infoRef.current.role,
             joinedAt: Date.now(),
             onlineAt: Date.now(),
           });
@@ -71,11 +85,10 @@ export function useRoomPresence({
     channelRef.current = channel;
 
     return () => {
-      channel.untrack();
-      channel.unsubscribe();
+      supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [roomId, userId, displayName, role]);
+  }, [roomId, userId]);
 
   const isUserOnline = (checkUserId: string): boolean => {
     return onlineUsers.some((u) => u.userId === checkUserId);

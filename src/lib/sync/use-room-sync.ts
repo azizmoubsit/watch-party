@@ -35,6 +35,12 @@ export function useRoomSync({
   const currentVersionRef = React.useRef<number>(room?.version || 1);
   const roomRef = React.useRef<Room | null>(room);
 
+  // Keep callbacks stable in ref to prevent channel teardown loops on re-renders
+  const callbacksRef = React.useRef({ onApplyPlay, onApplyPause, onApplySeek, onRoomStateUpdated });
+  React.useEffect(() => {
+    callbacksRef.current = { onApplyPlay, onApplyPause, onApplySeek, onRoomStateUpdated };
+  }, [onApplyPlay, onApplyPause, onApplySeek, onRoomStateUpdated]);
+
   const [isConnected, setIsConnected] = React.useState(false);
   const [syncStatus, setSyncStatus] = React.useState<"synchronized" | "reconnecting" | "drift_correction">("synchronized");
 
@@ -46,7 +52,7 @@ export function useRoomSync({
     }
   }, [room]);
 
-  // Subscribe to private Realtime channel
+  // Subscribe to private Realtime channel ONCE per room/user
   React.useEffect(() => {
     if (!room?.id || !userId) return;
 
@@ -77,6 +83,8 @@ export function useRoomSync({
 
         currentVersionRef.current = event.version;
 
+        const { onApplyPlay: playCb, onApplyPause: pauseCb, onApplySeek: seekCb } = callbacksRef.current;
+
         if (event.type === "PLAY") {
           const expectedPos = calculateExpectedPosition({
             status: "playing",
@@ -84,13 +92,13 @@ export function useRoomSync({
             changedAt: event.timestamp,
           });
 
-          if (onApplySeek) onApplySeek(expectedPos);
-          if (onApplyPlay) onApplyPlay();
+          if (seekCb) seekCb(expectedPos);
+          if (playCb) playCb();
         } else if (event.type === "PAUSE") {
-          if (onApplySeek) onApplySeek(event.position);
-          if (onApplyPause) onApplyPause();
+          if (seekCb) seekCb(event.position);
+          if (pauseCb) pauseCb();
         } else if (event.type === "SEEK") {
-          if (onApplySeek) onApplySeek(event.position);
+          if (seekCb) seekCb(event.position);
         }
       })
       .subscribe((status) => {
@@ -106,10 +114,10 @@ export function useRoomSync({
     channelRef.current = channel;
 
     return () => {
-      channel.unsubscribe();
+      supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [room?.id, userId, onApplyPlay, onApplyPause, onApplySeek]);
+  }, [room?.id, userId]);
 
   // User-initiated playback actions
   const broadcastUserPlay = async (currentPosition: number) => {
@@ -123,7 +131,9 @@ export function useRoomSync({
 
     if (result.success && result.room) {
       currentVersionRef.current = result.room.version;
-      if (onRoomStateUpdated) onRoomStateUpdated(result.room);
+      if (callbacksRef.current.onRoomStateUpdated) {
+        callbacksRef.current.onRoomStateUpdated(result.room);
+      }
 
       const eventPayload: RoomSyncEvent = {
         type: "PLAY",
@@ -155,7 +165,9 @@ export function useRoomSync({
 
     if (result.success && result.room) {
       currentVersionRef.current = result.room.version;
-      if (onRoomStateUpdated) onRoomStateUpdated(result.room);
+      if (callbacksRef.current.onRoomStateUpdated) {
+        callbacksRef.current.onRoomStateUpdated(result.room);
+      }
 
       const eventPayload: RoomSyncEvent = {
         type: "PAUSE",
@@ -189,7 +201,9 @@ export function useRoomSync({
 
     if (result.success && result.room) {
       currentVersionRef.current = result.room.version;
-      if (onRoomStateUpdated) onRoomStateUpdated(result.room);
+      if (callbacksRef.current.onRoomStateUpdated) {
+        callbacksRef.current.onRoomStateUpdated(result.room);
+      }
 
       const eventPayload: RoomSyncEvent = {
         type: "SEEK",
