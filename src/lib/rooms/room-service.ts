@@ -120,6 +120,43 @@ export async function createRoomAction(params: {
   return { success: true, room: room as Room, member: member as RoomMember };
 }
 
+async function findRoomByIdOrCode(
+  supabase: ReturnType<typeof createClient>,
+  rawInput: string
+): Promise<Room | null> {
+  const cleanInput = rawInput.trim();
+  if (!cleanInput) return null;
+
+  // 1. Try RPC function first (bypasses table RLS for room lookup)
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc("get_room_by_code", { p_code: cleanInput });
+    if (!rpcError && rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
+      return rpcData[0] as Room;
+    }
+  } catch (e) {
+    console.warn("RPC get_room_by_code fallback to standard query:", e);
+  }
+
+  // 2. Standard table query fallback
+  let query = supabase.from("rooms").select();
+  if (isUUID(cleanInput)) {
+    query = query.eq("id", cleanInput);
+  } else {
+    let code = cleanInput.toUpperCase();
+    if (!code.startsWith("WP-") && code.length === 4) {
+      code = "WP-" + code;
+    }
+    query = query.eq("code", code);
+  }
+
+  const { data: rooms } = await query;
+  if (rooms && rooms.length > 0) {
+    return rooms[0] as Room;
+  }
+
+  return null;
+}
+
 export async function joinRoomByCodeAction(params: {
   code: string;
   displayName: string;
@@ -134,31 +171,11 @@ export async function joinRoomByCodeAction(params: {
     };
   }
 
-  const rawInput = params.code.trim();
+  const room = await findRoomByIdOrCode(supabase, params.code);
 
-  // Safely construct room lookup query without triggering Postgres UUID syntax errors
-  let query = supabase.from("rooms").select();
-
-  if (isUUID(rawInput)) {
-    query = query.eq("id", rawInput);
-  } else {
-    let code = rawInput.toUpperCase();
-    if (!code.startsWith("WP-") && code.length === 4) {
-      code = "WP-" + code;
-    }
-    query = query.eq("code", code);
-  }
-
-  const { data: rooms, error: roomLookupError } = await query;
-
-  if (roomLookupError || !rooms || rooms.length === 0) {
-    if (roomLookupError) {
-      console.error("Room lookup database error:", roomLookupError);
-    }
+  if (!room) {
     return { success: false, error: "Room not found. Please verify the room code or link." };
   }
-
-  const room = rooms[0] as Room;
 
   // Check if member already exists to preserve custom role
   const { data: existingMember } = await supabase
@@ -248,34 +265,21 @@ export async function fetchRoomWithMembership(roomId: string) {
   const { data: { session } } = await supabase.auth.getSession();
   const userId = session?.user?.id;
 
-  const rawInput = roomId.trim();
-  let query = supabase.from("rooms").select();
+  const room = await findRoomByIdOrCode(supabase, roomId);
 
-  if (isUUID(rawInput)) {
-    query = query.eq("id", rawInput);
-  } else {
-    let code = rawInput.toUpperCase();
-    if (!code.startsWith("WP-") && code.length === 4) {
-      code = "WP-" + code;
-    }
-    query = query.eq("code", code);
-  }
-
-  const { data: room, error: roomError } = await query.single();
-
-  if (roomError || !room) {
+  if (!room) {
     return { room: null, member: null, members: [], error: "Room not found." };
   }
 
   const { data: members } = await supabase
     .from("room_members")
     .select()
-    .eq("room_id", (room as Room).id);
+    .eq("room_id", room.id);
 
   const currentMember = (members || []).find((m) => m.user_id === userId) || null;
 
   return {
-    room: room as Room,
+    room,
     member: currentMember as RoomMember | null,
     members: (members || []) as RoomMember[],
     error: null,
