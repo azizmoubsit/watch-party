@@ -284,14 +284,16 @@ export class YouTubeVideoAdapter implements VideoController {
 
     switch (stateCode) {
       case YTState.PLAYING: {
-        const origin: ActionOrigin = this.isProgrammaticChange ? "programmatic" : "user";
+        const isTabHidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+        const origin: ActionOrigin = (this.isProgrammaticChange || isTabHidden) ? "programmatic" : "user";
         this.isProgrammaticChange = false;
         this.callbacks.onPlay?.(origin);
         this.emitState("playing", null);
         break;
       }
       case YTState.PAUSED: {
-        const origin: ActionOrigin = this.isProgrammaticChange ? "programmatic" : "user";
+        const isTabHidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+        const origin: ActionOrigin = (this.isProgrammaticChange || isTabHidden) ? "programmatic" : "user";
         this.isProgrammaticChange = false;
         this.callbacks.onPause?.(origin);
         this.emitState("paused", null);

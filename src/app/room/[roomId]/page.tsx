@@ -138,7 +138,7 @@ export default function RoomPage() {
     const expectedPos = calculateExpectedPosition({
       status: room.playback_status || "paused",
       position: room.playback_position || 0,
-      changedAt: room.updated_at || new Date().toISOString(),
+      changedAt: room.changed_at || room.updated_at || new Date().toISOString(),
     });
 
     const timer = setTimeout(async () => {
@@ -149,7 +149,7 @@ export default function RoomPage() {
           await playerRef.current.applyPlay();
         }
       }
-    }, 450);
+    }, 600);
 
     return () => clearTimeout(timer);
   }, [room]);

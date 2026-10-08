@@ -48,7 +48,8 @@ export class HLSVideoAdapter implements VideoController {
   }
 
   private handlePlay = (): void => {
-    const origin: ActionOrigin = this.isProgrammaticChange ? "programmatic" : "user";
+    const isTabHidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+    const origin: ActionOrigin = (this.isProgrammaticChange || isTabHidden) ? "programmatic" : "user";
     this.status = "playing";
     this.emitStateChange();
 
@@ -58,7 +59,8 @@ export class HLSVideoAdapter implements VideoController {
   };
 
   private handlePause = (): void => {
-    const origin: ActionOrigin = this.isProgrammaticChange ? "programmatic" : "user";
+    const isTabHidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+    const origin: ActionOrigin = (this.isProgrammaticChange || isTabHidden) ? "programmatic" : "user";
     this.status = "paused";
     this.emitStateChange();
 
@@ -68,7 +70,8 @@ export class HLSVideoAdapter implements VideoController {
   };
 
   private handleSeeking = (): void => {
-    const origin: ActionOrigin = this.isProgrammaticChange ? "programmatic" : "user";
+    const isTabHidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+    const origin: ActionOrigin = (this.isProgrammaticChange || isTabHidden) ? "programmatic" : "user";
 
     if (this.callbacks.onSeek) {
       this.callbacks.onSeek(this.getCurrentTime(), origin);
@@ -122,7 +125,12 @@ export class HLSVideoAdapter implements VideoController {
     this.currentSource = source;
     this.status = "loading";
     this.lastError = null;
+    this.isProgrammaticChange = true;
     this.emitStateChange();
+
+    setTimeout(() => {
+      this.isProgrammaticChange = false;
+    }, 1000);
 
     // Clean up prior HLS instance
     if (this.hlsInstance) {
