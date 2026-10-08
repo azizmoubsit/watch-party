@@ -44,7 +44,7 @@ async function ensureUserSession(supabase: ReturnType<typeof createClient>): Pro
     console.error("Anonymous auth error:", anonError.message);
     return {
       userId: null,
-      error: `Authentication failed (${anonError.message}). Please ensure Anonymous Auth is enabled in your Supabase Dashboard (Authentication > Providers > Anonymous).`,
+      error: "Authentication failed. Please try again or refresh the page.",
     };
   }
 

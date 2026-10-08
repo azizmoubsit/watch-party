@@ -61,7 +61,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-2">
             <Radio className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Presence: <strong className="text-slate-200 font-medium">Supabase Realtime</strong></span>
+            <span>Presence: <strong className="text-slate-200 font-medium">Realtime Active</strong></span>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="w-3.5 h-3.5 text-purple-400" />
@@ -78,7 +78,7 @@ export default function Home() {
             <p className="text-xs text-slate-400">Role-based controls, synchronous playback transitions, and online member tracking.</p>
           </div>
           <Badge variant="slate" className="font-mono">
-            Room ID: wp-demo-8492
+            Room Code: WP-DEMO
           </Badge>
         </div>
 
@@ -91,11 +91,11 @@ export default function Home() {
                 <span>Synchronized Player</span>
               </div>
               <span className="text-slate-600">|</span>
-              <span className="text-slate-400 font-mono text-[11px]">Source: Big Buck Bunny (Direct MP4)</span>
+              <span className="text-slate-400 font-mono text-[11px]">Source: Demo Video Stream</span>
             </div>
 
             <div className="flex items-center gap-3">
-              <Badge variant="success">Synchronized v42</Badge>
+              <Badge variant="success">Synchronized</Badge>
             </div>
           </div>
 
@@ -150,7 +150,7 @@ export default function Home() {
             </div>
             <h3 className="text-base font-semibold text-white">Authoritative State Model</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Monotonically increasing version numbers eliminate playback feedback loops and handle out-of-order broadcasts.
+              Real-time state synchronization eliminates playback feedback loops and keeps all members aligned.
             </p>
           </div>
 
@@ -160,7 +160,7 @@ export default function Home() {
             </div>
             <h3 className="text-base font-semibold text-white">Granular Room Roles</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Enforce explicit permissions for Owners, Controllers, and Viewers at database and RLS boundaries.
+              Enforce explicit permissions for Owners, Controllers, and Viewers.
             </p>
           </div>
 
@@ -168,9 +168,9 @@ export default function Home() {
             <div className="w-10 h-10 rounded-xl bg-emerald-600/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
               <Tv className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-semibold text-white">Pluggable Provider Adapters</h3>
+            <h3 className="text-base font-semibold text-white">Multiple Video Providers</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Unified player abstraction supporting HTML5 native media, YouTube embedded player, and custom streams seamlessly.
+              Support MP4 video URLs, HLS live streams (.m3u8), and YouTube links seamlessly.
             </p>
           </div>
         </div>

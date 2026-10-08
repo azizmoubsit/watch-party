@@ -42,7 +42,7 @@ export async function updateRoomPlaybackStateAction(params: {
 
   if (updateError || !updatedRoom) {
     console.error("Failed to update room playback state:", updateError);
-    return { success: false, error: updateError?.message || "Database update failed." };
+    return { success: false, error: "Failed to update room playback state." };
   }
 
   return { success: true, room: updatedRoom as Room };
@@ -85,7 +85,7 @@ export async function updateRoomSourceAction(params: {
 
   if (updateError || !updatedRoom) {
     console.error("Failed to update room source:", updateError);
-    return { success: false, error: updateError?.message || "Database update failed." };
+    return { success: false, error: "Failed to update video source." };
   }
 
   return { success: true, room: updatedRoom as Room };

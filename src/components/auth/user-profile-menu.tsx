@@ -48,8 +48,6 @@ export function UserProfileMenu() {
     setIsEditOpen(false);
   };
 
-  const formattedId = user.id.slice(0, 8);
-
   return (
     <>
       <button
@@ -65,8 +63,8 @@ export function UserProfileMenu() {
           <span className="font-semibold text-white truncate max-w-[100px] sm:max-w-[140px]">
             {displayName || "Anonymous User"}
           </span>
-          <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
-            <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" /> ID: {formattedId}
+          <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
+            <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" /> Active Profile
           </span>
         </div>
 
@@ -94,11 +92,6 @@ export function UserProfileMenu() {
             helperText="2-30 characters."
             required
           />
-
-          <div className="text-[11px] font-mono text-slate-400 bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-1">
-            <p><span className="text-slate-500">Supabase User ID:</span> {user.id}</p>
-            <p><span className="text-slate-500">Identity Type:</span> Anonymous Session</p>
-          </div>
 
           <div className="pt-2 flex items-center justify-end gap-3">
             <Button variant="ghost" type="button" onClick={() => setIsEditOpen(false)}>
