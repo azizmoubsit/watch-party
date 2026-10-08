@@ -210,9 +210,11 @@ export default function RoomPage() {
     }
   };
 
-  const videoSource: VideoSource | null = room?.source_url
-    ? { url: room.source_url, type: room.source_type }
-    : null;
+  const videoSource: VideoSource | null = React.useMemo(() => {
+    return room?.source_url
+      ? { url: room.source_url, type: room.source_type }
+      : null;
+  }, [room?.source_url, room?.source_type]);
 
   if (isAuthLoading || isLoading) {
     return (
