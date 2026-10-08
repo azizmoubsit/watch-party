@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export type RoomEventType = "PLAY" | "PAUSE" | "SEEK" | "CHANGE_SOURCE";
+export type RoomEventType = "PLAY" | "PAUSE" | "SEEK" | "CHANGE_SOURCE" | "ROLE_UPDATE";
 
 export const roomSyncEventSchema = z.discriminatedUnion("type", [
   z.object({
@@ -33,6 +33,14 @@ export const roomSyncEventSchema = z.discriminatedUnion("type", [
     version: z.number().int().positive(),
     sourceUrl: z.string().url(),
     sourceType: z.enum(["mp4", "hls", "youtube"]),
+    timestamp: z.number(),
+    senderId: z.string(),
+  }),
+  z.object({
+    type: z.literal("ROLE_UPDATE"),
+    roomId: z.string().uuid(),
+    targetUserId: z.string(),
+    newRole: z.enum(["owner", "controller", "viewer"]),
     timestamp: z.number(),
     senderId: z.string(),
   }),

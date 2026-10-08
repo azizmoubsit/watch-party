@@ -12,6 +12,8 @@ import {
 } from "./sync-engine";
 import { updateRoomPlaybackStateAction } from "./sync-service";
 
+import type { RoomRole } from "@/types/room";
+
 export interface UseRoomSyncProps {
   room: Room | null;
   userId: string | undefined;
@@ -20,6 +22,7 @@ export interface UseRoomSyncProps {
   onApplyPause?: () => void;
   onApplySeek?: (positionSeconds: number) => void;
   onRoomStateUpdated?: (updatedRoom: Room) => void;
+  onRoleUpdated?: (targetUserId: string, newRole: RoomRole) => void;
 }
 
 export function useRoomSync({
@@ -30,16 +33,17 @@ export function useRoomSync({
   onApplyPause,
   onApplySeek,
   onRoomStateUpdated,
+  onRoleUpdated,
 }: UseRoomSyncProps) {
   const channelRef = React.useRef<RealtimeChannel | null>(null);
   const currentVersionRef = React.useRef<number>(room?.version || 1);
   const roomRef = React.useRef<Room | null>(room);
 
   // Keep callbacks stable in ref to prevent channel teardown loops on re-renders
-  const callbacksRef = React.useRef({ onApplyPlay, onApplyPause, onApplySeek, onRoomStateUpdated });
+  const callbacksRef = React.useRef({ onApplyPlay, onApplyPause, onApplySeek, onRoomStateUpdated, onRoleUpdated });
   React.useEffect(() => {
-    callbacksRef.current = { onApplyPlay, onApplyPause, onApplySeek, onRoomStateUpdated };
-  }, [onApplyPlay, onApplyPause, onApplySeek, onRoomStateUpdated]);
+    callbacksRef.current = { onApplyPlay, onApplyPause, onApplySeek, onRoomStateUpdated, onRoleUpdated };
+  }, [onApplyPlay, onApplyPause, onApplySeek, onRoomStateUpdated, onRoleUpdated]);
 
   const [isConnected, setIsConnected] = React.useState(false);
   const [syncStatus, setSyncStatus] = React.useState<"synchronized" | "reconnecting" | "drift_correction">("synchronized");
@@ -74,6 +78,13 @@ export function useRoomSync({
         }
 
         const event = validation.data as RoomSyncEvent;
+
+        if (event.type === "ROLE_UPDATE") {
+          if (callbacksRef.current.onRoleUpdated) {
+            callbacksRef.current.onRoleUpdated(event.targetUserId, event.newRole);
+          }
+          return;
+        }
 
         // Reject stale versions
         if (isStaleVersion(event.version, currentVersionRef.current)) {
@@ -224,11 +235,33 @@ export function useRoomSync({
     }
   };
 
+  const broadcastRoleUpdate = (targetUserId: string, newRole: RoomRole) => {
+    if (!roomRef.current || !userId) return;
+
+    const eventPayload: RoomSyncEvent = {
+      type: "ROLE_UPDATE",
+      roomId: roomRef.current.id,
+      targetUserId,
+      newRole,
+      timestamp: Date.now(),
+      senderId: userId,
+    };
+
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: "broadcast",
+        event: "ROOM_EVENT",
+        payload: eventPayload,
+      });
+    }
+  };
+
   return {
     isConnected,
     syncStatus,
     broadcastUserPlay,
     broadcastUserPause,
     broadcastUserSeek,
+    broadcastRoleUpdate,
   };
 }
