@@ -21,7 +21,8 @@ export async function startWatchSessionAction(roomId: string): Promise<{ session
     .single();
 
   if (error || !data) {
-    console.error("Failed to start watch session:", error);
+    const errorDetails = error?.message || error?.details || (typeof error === "object" ? JSON.stringify(error) : String(error));
+    console.error("Failed to start watch session:", errorDetails);
     return { error: error?.message || "Failed to create session." };
   }
 
