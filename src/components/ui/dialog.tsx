@@ -47,7 +47,7 @@ export function Dialog({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-slate-950/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
@@ -63,7 +63,7 @@ export function Dialog({
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         className={cn(
-          "relative z-10 w-full max-w-lg rounded-2xl glass-card border border-indigo-500/20 p-6 sm:p-8 shadow-2xl shadow-indigo-950/50 animate-in zoom-in-95 duration-200 space-y-6",
+          "m-auto relative z-10 w-full max-w-lg rounded-2xl glass-card border border-indigo-500/20 p-6 sm:p-8 shadow-2xl shadow-indigo-950/50 animate-in zoom-in-95 duration-200 space-y-6",
           className
         )}
       >
