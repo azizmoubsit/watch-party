@@ -23,6 +23,8 @@ import { ChangeSourceModal } from "@/components/room/change-source-modal";
 import { RoomSettingsModal } from "@/components/room/room-settings-modal";
 import { RoomAnalyticsModal } from "@/components/room/room-analytics-modal";
 
+import { calculateExpectedPosition } from "@/lib/sync/sync-engine";
+
 export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
@@ -41,6 +43,7 @@ export default function RoomPage() {
   const [activeSidebarTab, setActiveSidebarTab] = React.useState<"chat" | "members">("chat");
 
   const playerRef = React.useRef<VideoPlayerHandle>(null);
+  const hasInitializedPlayerRef = React.useRef(false);
 
   const userRole = currentMember?.role || (room?.owner_id === user?.id ? "owner" : "viewer");
 
@@ -74,11 +77,22 @@ export default function RoomPage() {
   const canManageRoles = can(userRole, "manage_roles");
   const canManageSettings = can(userRole, "manage_settings");
 
+  const reloadRoomData = React.useCallback(async () => {
+    if (!roomId) return;
+    const result = await fetchRoomWithMembership(roomId);
+    if (result.room) {
+      setRoom(result.room);
+      setCurrentMember(result.member);
+      setMembers(result.members);
+    }
+  }, [roomId]);
+
   const {
     isConnected,
     broadcastUserPlay,
     broadcastUserPause,
     broadcastUserSeek,
+    broadcastRoleUpdate,
   } = useRoomSync({
     room,
     userId: user?.id,
@@ -95,17 +109,50 @@ export default function RoomPage() {
     onRoomStateUpdated: (updatedRoom) => {
       setRoom(updatedRoom);
     },
+    onRoleUpdated: async () => {
+      await reloadRoomData();
+    },
   });
 
-  const reloadRoomData = React.useCallback(async () => {
+  // Prompt before reload or close tab when user is inside room
+  React.useEffect(() => {
     if (!roomId) return;
-    const result = await fetchRoomWithMembership(roomId);
-    if (result.room) {
-      setRoom(result.room);
-      setCurrentMember(result.member);
-      setMembers(result.members);
-    }
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
   }, [roomId]);
+
+  // Restore calculated expected position & status on reload/join
+  React.useEffect(() => {
+    if (!room || hasInitializedPlayerRef.current) return;
+
+    const expectedPos = calculateExpectedPosition({
+      status: room.playback_status || "paused",
+      position: room.playback_position || 0,
+      changedAt: room.updated_at || new Date().toISOString(),
+    });
+
+    const timer = setTimeout(async () => {
+      if (playerRef.current) {
+        hasInitializedPlayerRef.current = true;
+        await playerRef.current.applySeek(expectedPos);
+        if (room.playback_status === "playing") {
+          await playerRef.current.applyPlay();
+        }
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [room]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -150,6 +197,7 @@ export default function RoomPage() {
     if (!room) return;
     const res = await updateMemberRoleAction({ roomId: room.id, targetUserId, newRole });
     if (res.success) {
+      broadcastRoleUpdate(targetUserId, newRole);
       await reloadRoomData();
     }
   };
@@ -225,8 +273,6 @@ export default function RoomPage() {
           </div>
           <p className="text-xs text-slate-400 flex items-center gap-2">
             <span>Created by <strong className="text-slate-200">{currentMember?.display_name || authDisplayName || "Room Host"}</strong></span>
-            <span>•</span>
-            <span className="font-mono text-indigo-300">Version: {room.version}</span>
           </p>
         </div>
 
