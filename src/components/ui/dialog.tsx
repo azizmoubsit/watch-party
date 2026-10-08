@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,8 +25,13 @@ export function Dialog({
   const titleId = React.useId();
   const descriptionId = React.useId();
   const dialogRef = React.useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = React.useState(false);
 
-  // Close on Escape key
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Close on Escape key and disable background scroll
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
@@ -44,13 +50,13 @@ export function Dialog({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-950/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
+        className="fixed inset-0 -z-10"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -63,7 +69,7 @@ export function Dialog({
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         className={cn(
-          "m-auto relative z-10 w-full max-w-lg rounded-2xl glass-card border border-indigo-500/20 p-6 sm:p-8 shadow-2xl shadow-indigo-950/50 animate-in zoom-in-95 duration-200 space-y-6",
+          "relative z-10 w-full max-w-lg rounded-2xl glass-card border border-indigo-500/30 p-6 sm:p-8 shadow-2xl shadow-indigo-950/80 animate-in zoom-in-95 duration-200 space-y-6 my-auto",
           className
         )}
       >
@@ -94,4 +100,6 @@ export function Dialog({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
